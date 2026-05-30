@@ -12,6 +12,7 @@ interface ChatAreaProps {
   theme: Theme;
   onToggleSidebar?: () => void;
   sidebarOpen?: boolean;
+  onEditMessage?: (id: string, newContent: string) => void;
 }
 
 const MODELS = [
@@ -50,7 +51,8 @@ export default function ChatArea({
   onClearHistory,
   theme,
   onToggleSidebar,
-  sidebarOpen
+  sidebarOpen,
+  onEditMessage
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -201,7 +203,7 @@ export default function ChatArea({
         ) : (
           <div className="max-w-[700px] mx-auto w-full flex flex-col gap-8" id="message-bubbles-list">
             {messages.map((message) => (
-              <MessageItem key={message.id} message={message} theme={theme} />
+              <MessageItem key={message.id} message={message} theme={theme} onEditMessage={onEditMessage} />
             ))}
 
             {/* Premium AI Assistant Thinking Loader */}

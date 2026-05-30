@@ -120,6 +120,25 @@ export default function App() {
     );
   };
 
+  const handleEditMessage = (messageId: string, newContent: string) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConversationId) {
+          return {
+            ...c,
+            messages: c.messages.map((m) => {
+              if (m.id === messageId) {
+                return { ...m, content: newContent };
+              }
+              return m;
+            })
+          };
+        }
+        return c;
+      })
+    );
+  };
+
   // Submit trigger
   const handleSendMessage = async (text: string, files: AttachedFile[], requestedMode: ChatMode = activeMode) => {
     if ((!text.trim() && files.length === 0) || isGenerating) return;
@@ -583,6 +602,7 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
           theme={theme}
           onToggleSidebar={handleToggleSidebar}
           sidebarOpen={sidebarOpen}
+          onEditMessage={handleEditMessage}
         />
 
         {/* Elegant Bottom Input Composer Bar (Always anchored) */}

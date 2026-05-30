@@ -252,98 +252,31 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* Footer actions: Upgrade and User bio */}
-        <div className={`p-3 border-t flex flex-col gap-2 relative ${
+        {/* Footer actions: upgrade and profile removed per user request */}
+        <div className={`p-4 border-t flex items-center justify-between select-none ${
           theme === 'dark' ? 'border-[#2f2f2f]/30' : 'border-neutral-200'
         }`} id="sidebar-footer">
           {isOpen && (
             <>
-              {/* Premium ChatGPT upgrade banner mock */}
+              <span className={`text-[12px] font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500'}`}>
+                Simple AI Assistant
+              </span>
               <button
-                onClick={onNewConversation}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-left font-sans cursor-pointer transition-all border border-transparent ${
+                onClick={onToggleTheme}
+                className={`p-2 rounded-xl transition-all cursor-pointer focus:outline-none flex items-center justify-center border ${
                   theme === 'dark'
-                    ? 'hover:bg-neutral-800/60 text-[#ececec]'
-                    : 'hover:bg-neutral-200/60 text-neutral-800'
+                    ? 'border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800 hover:border-neutral-700'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:text-black hover:bg-neutral-50 hover:border-neutral-300'
                 }`}
-                id="upgrade-banner"
+                title={theme === 'dark' ? "Toggle Light Mode" : "Toggle Dark Mode"}
+                id="toggle-theme-btn"
               >
-                <div className={`p-1.5 rounded-full flex items-center justify-center border ${
-                  theme === 'dark' ? 'bg-[#212121] border-[#2f2f2f]/50' : 'bg-neutral-100 border-neutral-300'
-                }`}>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500/10" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold text-xs text-amber-500">Upgrade Plan</span>
-                  <span className="text-[10px] text-neutral-500">Get GPT-4, o1, Dall-E and more</span>
-                </div>
-              </button>
-
-
-              {/* Interactive Profile Modal Activator popover */}
-              <div className="relative pt-1 border-t border-transparent" id="user-profile-badge-interactive">
-                <button
-                  onClick={() => setShowProfileMenu((prev) => !prev)}
-                  className={`w-full flex items-center justify-between p-1.5 rounded-lg transition-all text-left cursor-pointer focus:outline-none ${
-                    theme === 'dark' ? 'hover:bg-neutral-800/60' : 'hover:bg-neutral-200/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <div className="w-8 h-8 rounded-full bg-[#10a37f] text-white flex items-center justify-center text-xs font-bold font-sans flex-shrink-0 shadow-sm uppercase">
-                      NC
-                    </div>
-                    <div className="flex flex-col truncate" id="profile-details">
-                      <span className={`text-[13px] font-semibold truncate ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
-                        Nirere Chanceline
-                      </span>
-                      <span className="text-[10px] text-neutral-500 truncate">nirerechanceline2@gmail.com</span>
-                    </div>
-                  </div>
-                  <Settings className="w-4 h-4 text-neutral-500" />
-                </button>
-
-                {/* Popover Profile Menu */}
-                {showProfileMenu && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40 cursor-default" 
-                      onClick={() => setShowProfileMenu(false)} 
-                    />
-                    <div className={`absolute bottom-full left-0 w-full mb-2 p-1.5 rounded-xl border shadow-xl z-50 transition-all duration-200 ${
-                      theme === 'dark' 
-                        ? 'bg-[#212121] border-[#2f2f2f] text-[#ececec]' 
-                        : 'bg-white border-neutral-200 text-neutral-800'
-                    }`} id="profile-popover-menu">
-                      <div className="px-2.5 py-1.5 border-b border-neutral-800/20 mb-1">
-                        <span className="text-[11px] font-semibold text-neutral-500 font-sans tracking-tight block">MY ACCOUNT</span>
-                        <span className="text-xs font-medium text-emerald-500 block">Plus Subscriber</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          onNewConversation();
-                          setShowProfileMenu(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2.5 text-xs text-left rounded-lg cursor-pointer ${
-                          theme === 'dark' ? 'hover:bg-[#2f2f2f]' : 'hover:bg-[#f4f4f4]'
-                        }`}
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Settings</span>
-                      </button>
-                      <div className="border-t my-1 border-neutral-800/15" />
-                      <button
-                        onClick={() => setShowProfileMenu(false)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2.5 text-xs text-left rounded-lg cursor-pointer text-red-500 ${
-                          theme === 'dark' ? 'hover:bg-[#2f2f2f]' : 'hover:bg-[#f4f4f4]'
-                        }`}
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Log Out</span>
-                      </button>
-                    </div>
-                  </>
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-indigo-500" />
                 )}
-              </div>
+              </button>
             </>
           )}
         </div>

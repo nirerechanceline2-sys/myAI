@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion } from 'motion/react';
-import { Copy, Check, Sparkles, User, AlertCircle, FileText, Volume2, VolumeX } from 'lucide-react';
+import { Copy, Check, Sparkles, User, AlertCircle, FileText, Volume2, VolumeX, ThumbsUp, ThumbsDown, Pencil } from 'lucide-react';
 import { Message, Theme } from '../types';
 import CodeBlock from './CodeBlock';
 import DataVisualizer from './DataVisualizer';
@@ -12,12 +12,22 @@ import ImageGeneratorResult from './ImageGeneratorResult';
 interface MessageItemProps {
   message: Message;
   theme: Theme;
+  onEditMessage?: (id: string, newContent: string) => void;
 }
 
-export default function MessageItem({ message, theme }: MessageItemProps) {
+export default function MessageItem({ message, theme, onEditMessage }: MessageItemProps) {
   const [copied, setCopied] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [disliked, setDisliked] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.content);
   const isAssistant = message.role === 'assistant';
+
+  // Keep editedText synced if message content updates externally
+  useEffect(() => {
+    setEditedText(message.content);
+  }, [message.content]);
 
   // Cleanup speech synthesis on unmount to prevent lingering speech
   useEffect(() => {
@@ -63,6 +73,32 @@ export default function MessageItem({ message, theme }: MessageItemProps) {
     }
   };
 
+  const handleLike = () => {
+    setLiked(!liked);
+    if (!liked) setDisliked(false);
+  };
+
+  const handleDislike = () => {
+    setDisliked(!disliked);
+    if (!disliked) setLiked(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (editedText.trim() && editedText !== message.content) {
+      if (onEditMessage) {
+        onEditMessage(message.id, editedText);
+      } else {
+        message.content = editedText;
+      }
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedText(message.content);
+    setIsEditing(false);
+  };
+
   // Convert size into standard human-readable text
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -83,24 +119,24 @@ export default function MessageItem({ message, theme }: MessageItemProps) {
           ? 'bg-transparent border-transparent'
           : theme === 'dark'
             ? 'bg-[#2f2f2f] text-[#ececec] rounded-3xl p-4 px-5 max-w-[85%] sm:max-w-[75%] ml-auto flex-row-reverse shadow-sm'
-            : 'bg-[#f4f4f4] text-neutral-900 rounded-3xl p-4 px-5 max-w-[85%] sm:max-w-[75%] ml-auto flex-row-reverse shadow-xs'
+            : 'bg-[#f4f4f4] text-neutral-900 rounded-[22px] p-4 px-5 max-w-[85%] sm:max-w-[75%] ml-auto flex-row-reverse shadow-xs'
       } mb-4`}
     >
       {/* Content column */}
       <div className="flex-1 min-w-0" id={`content-col-${message.id}`}>
-        {/* Header Metadata */}
-        <div className={`flex items-center gap-2 mb-2 text-xs text-neutral-500 font-sans tracking-tight select-none ${
-          !isAssistant && 'justify-end'
-        }`} id={`meta-row-${message.id}`}>
-          <span className={`font-semibold capitalize ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-850'}`} id={`role-label-${message.id}`}>
-            {isAssistant ? 'AI Assistant' : 'You'}
-          </span>
-          <span className="text-neutral-600">•</span>
-          <span id={`time-${message.id}`}>{message.timestamp}</span>
-        </div>
+        {/* Header Metadata (Removed entirely for user prompt per user request) */}
+        {isAssistant && (
+          <div className="flex items-center gap-2 mb-2 text-xs text-neutral-500 font-sans tracking-tight select-none" id={`meta-row-${message.id}`}>
+            <span className={`font-semibold capitalize ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-850'}`} id={`role-label-${message.id}`}>
+              AI Assistant
+            </span>
+            <span className="text-neutral-600">•</span>
+            <span id={`time-${message.id}`}>{message.timestamp}</span>
+          </div>
+        )}
 
-        {/* Text Area */}
-        <div className={`text-[15px] sm:text-[16px] leading-[1.625] ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`} id={`body-content-${message.id}`}>
+        {/* Text Area / Editing State */}
+        <div className={`text-[15px] sm:text-[16px] leading-[1.625] ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-850'}`} id={`body-content-${message.id}`}>
           {isAssistant ? (
             <div className="markdown-body select-text text-left font-sans" id={`markdown-${message.id}`}>
               <ReactMarkdown
@@ -135,9 +171,67 @@ export default function MessageItem({ message, theme }: MessageItemProps) {
               </ReactMarkdown>
             </div>
           ) : (
-            <div className="select-text whitespace-pre-wrap text-left py-0.5 text-[15px] sm:text-[16px] leading-[1.625]" id={`text-${message.id}`}>
-              {message.content}
-            </div>
+            /* User prompt layout supporting inline editing */
+            isEditing ? (
+              <div className="w-full flex flex-col gap-2.5 mt-1" id={`editor-container-${message.id}`}>
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full text-[15px] sm:text-[16px] leading-relaxed p-2.5 border border-neutral-250 rounded-xl bg-white text-neutral-900 focus:outline-none focus:ring-1 focus:ring-[#10a37f] resize-y min-h-[60px] font-sans"
+                  rows={2}
+                />
+                <div className="flex justify-end gap-1.5 text-xs select-none">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 rounded-full bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-semibold cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-3 py-1.5 rounded-full bg-[#10a37f] text-white hover:bg-[#0d8a6a] font-semibold cursor-pointer transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col" id={`user-prompt-wrap-${message.id}`}>
+                <div className="select-text whitespace-pre-wrap text-left py-0.5 text-[15px] sm:text-[16px] leading-[1.625] font-medium font-sans text-neutral-900" id={`text-${message.id}`}>
+                  {message.content}
+                </div>
+                
+                {/* Action controls inside the user bubble: edit and copy icons */}
+                <div className="mt-2.5 pt-1.5 border-t border-neutral-200/40 flex items-center justify-end gap-2.5 text-neutral-500 hover:text-neutral-800 select-none transition-colors">
+                  {/* Copy user prompt */}
+                  <button
+                    onClick={handleCopyText}
+                    className="p-1 rounded hover:bg-neutral-200 hover:text-neutral-900 transition-colors cursor-pointer focus:outline-none"
+                    title="Copy user query"
+                    id={`copy-user-btn-${message.id}`}
+                  >
+                    {copied ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.2]" id={`icon-copied-${message.id}`} />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 stroke-[2]" id={`icon-copy-${message.id}`} />
+                    )}
+                  </button>
+                  
+                  {/* Edit user prompt */}
+                  <button
+                    onClick={() => {
+                      setEditedText(message.content);
+                      setIsEditing(true);
+                    }}
+                    className="p-1 rounded hover:bg-neutral-200 hover:text-neutral-900 transition-colors cursor-pointer focus:outline-none"
+                    title="Edit user query"
+                    id={`edit-user-btn-${message.id}`}
+                  >
+                    <Pencil className="w-3.5 h-3.5 stroke-[2]" id={`icon-edit-${message.id}`} />
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </div>
 
@@ -216,6 +310,40 @@ export default function MessageItem({ message, theme }: MessageItemProps) {
                   <span>Copy</span>
                 </>
               )}
+            </button>
+
+            {/* Like button */}
+            <button
+              onClick={handleLike}
+              className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer font-sans text-xs focus:outline-none ${
+                liked
+                  ? 'border-emerald-250 bg-emerald-50 text-emerald-600'
+                  : theme === 'dark'
+                    ? 'border-transparent hover:border-[#2A2A2A] bg-transparent hover:bg-[#1A1A1A] text-neutral-400 hover:text-neutral-200'
+                    : 'border-neutral-200 hover:border-neutral-300 bg-neutral-55 hover:bg-neutral-100 text-neutral-550 hover:text-neutral-800'
+              }`}
+              title="Like response"
+              id={`like-btn-${message.id}`}
+            >
+              <ThumbsUp className={`w-3.5 h-3.5 ${liked ? 'fill-emerald-500 text-emerald-650' : ''}`} id={`icon-like-${message.id}`} />
+              <span>{liked ? 'Liked' : 'Like'}</span>
+            </button>
+
+            {/* Dislike button */}
+            <button
+              onClick={handleDislike}
+              className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer font-sans text-xs focus:outline-none ${
+                disliked
+                  ? 'border-red-200 bg-red-50 text-red-600'
+                  : theme === 'dark'
+                    ? 'border-transparent hover:border-[#2A2A2A] bg-transparent hover:bg-[#1A1A1A] text-neutral-400 hover:text-neutral-200'
+                    : 'border-neutral-200 hover:border-neutral-300 bg-neutral-55 hover:bg-neutral-100 text-neutral-550 hover:text-neutral-800'
+              }`}
+              title="Dislike response"
+              id={`dislike-btn-${message.id}`}
+            >
+              <ThumbsDown className={`w-3.5 h-3.5 ${disliked ? 'fill-red-500 text-red-650' : ''}`} id={`icon-dislike-${message.id}`} />
+              <span>{disliked ? 'Disliked' : 'Dislike'}</span>
             </button>
 
             <button
