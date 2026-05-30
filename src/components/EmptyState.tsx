@@ -26,25 +26,6 @@ export default function EmptyState({ onSelectPrompt, theme }: EmptyStateProps) {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto px-6 py-12 select-none" id="empty-state-container">
-      {/* Signature Logo Emblem */}
-      <div className="relative mb-6 group" id="chatgpt-emblem">
-        <div className="absolute inset-0 bg-[#10a37f]/10 rounded-full blur-xl opacity-20" />
-        
-        {/* Rounded green background that mimics the official logo shape */}
-        <div className="relative w-14 h-14 rounded-full bg-[#10a37f] flex items-center justify-center shadow-md cursor-pointer" id="emblem-inner">
-          <svg 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg" 
-            stroke="currentColor" 
-            strokeWidth="1.6" 
-            className="w-8 h-8 text-white"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.963 11.963 0 0012 5.006c-2.9 0-5.516 1.025-7.534 2.741m15.377 0c.563 1.144.873 2.428.873 3.78 0 4.97-4.03 9-9 9s-9-4.03-9-9c0-1.353.31-2.636.872-3.78m15.377 0l-3.376 3.376m-12.001 0l3.376-3.376" />
-          </svg>
-        </div>
-      </div>
-
       <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900 mb-2 text-center font-sans" id="empty-state-title">
         AI Assistant
       </h1>

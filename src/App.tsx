@@ -104,6 +104,21 @@ export default function App() {
     }
   };
 
+  const handleRenameConversation = (id: string, newTitle: string) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          return {
+            ...c,
+            title: newTitle.trim() || 'Untitled Chat',
+            lastActiveAt: new Date().toISOString()
+          };
+        }
+        return c;
+      })
+    );
+  };
+
   const handleClearActiveHistory = () => {
     if (!activeConversationId) return;
     setConversations((prev) =>
@@ -139,106 +154,15 @@ export default function App() {
     );
   };
 
-  // Submit trigger
-  const handleSendMessage = async (text: string, files: AttachedFile[], requestedMode: ChatMode = activeMode) => {
-    if ((!text.trim() && files.length === 0) || isGenerating) return;
-
-    // Detect slash commands and automatically adjust operational mode
-    let finalMode = requestedMode;
-    let cleanText = text.trim();
-
-    if (cleanText.startsWith('/image ') || cleanText === '/image' || cleanText.startsWith('/generate ')) {
-      finalMode = 'image';
-      cleanText = cleanText.replace(/^\/(image|generate)\s*/i, '').trim();
-    } else if (cleanText.startsWith('/visualize ') || cleanText === '/visualize' || cleanText.startsWith('/chart ')) {
-      finalMode = 'data';
-      cleanText = cleanText.replace(/^\/(visualize|chart)\s*/i, '').trim();
-    } else if (cleanText.startsWith('/calculate ') || cleanText === '/calculate' || cleanText.startsWith('/math ') || cleanText.startsWith('/solve ')) {
-      finalMode = 'math';
-      cleanText = cleanText.replace(/^\/(calculate|math|solve)\s*/i, '').trim();
-    }
-
-    if (!cleanText && files.length === 0) return;
-
-    // 1. Resolve active conversation state setup
-    let currentId = activeConversationId;
-    let targetConversation = conversations.find((c) => c.id === currentId);
-
-    const promptMessageContent = text.trim() || `Uploaded files: ${files.map(f => f.name).join(', ')}`;
-
-    // Create the standard user message payload
-    const userMessage: Message = {
-      id: `msg_${Date.now()}_user`,
-      role: 'user',
-      content: promptMessageContent,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      attachedFiles: files.length > 0 ? files : undefined
-    };
-
-    // If no existing active chat room, create one lazily
-    if (!currentId || !targetConversation) {
-      currentId = `chat_${Date.now()}`;
-      targetConversation = {
-        id: currentId,
-        title: text.trim().slice(0, 24) || 'New Chat',
-        messages: [userMessage],
-        createdAt: new Date().toISOString(),
-        lastActiveAt: new Date().toISOString()
-      };
-      setConversations((prev) => [targetConversation!, ...prev]);
-      setActiveConversationId(currentId);
-    } else {
-      // Append user message to active chat
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id === currentId) {
-            return {
-              ...c,
-              messages: [...c.messages, userMessage],
-              lastActiveAt: new Date().toISOString()
-            };
-          }
-          return c;
-        })
-      );
-    }
-
-    // 2. Setup streaming placeholder responses
-    const assistantMessageId = `msg_${Date.now() + 1}_assistant`;
-    const emptyAssistantMessage: Message = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: finalMode === 'image' ? `Synthesizing conceptual image render for: "${cleanText}"` : '',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isStreaming: true,
-      customType: finalMode === 'image' ? 'image' : 'standard'
-    };
-
-    // Update state to render standard thinking loader UI element
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === currentId) {
-          return {
-            ...c,
-            messages: [...c.messages, emptyAssistantMessage]
-          };
-        }
-        return c;
-      })
-    );
-
+  // Reusable multi-purpose streaming response generator
+  const generateResponse = async (
+    currentId: string,
+    assistantMessageId: string,
+    updatedHistory: Message[],
+    finalMode: ChatMode,
+    cleanText: string
+  ) => {
     setIsGenerating(true);
-
-    const updatedHistory = [
-      ...targetConversation.messages,
-      userMessage
-    ];
-
-    // Trigger title auto-summarizer in parallel on first user submission
-    const shouldGenerateTitle = targetConversation.messages.length === 0;
-    if (shouldGenerateTitle) {
-      triggerTitleGeneration(currentId, userMessage.content);
-    }
 
     // 3. Initiate full-stack requests based on finalMode
     if (finalMode === 'image') {
@@ -403,7 +327,7 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
             if (!line) continue;
             
             if (line.startsWith('data: ')) {
-              const dataPayload = line.slice(6).trim();
+               const dataPayload = line.slice(6).trim();
               if (dataPayload === '[DONE]') {
                 done = true;
                 break;
@@ -412,7 +336,7 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
               try {
                 const parsedObject = JSON.parse(dataPayload);
                 if (parsedObject.error) {
-                  throw new Error(parsedObject.error);
+                  throw new Error(`API_ERROR_PROPAGATE: ${parsedObject.error}`);
                 }
                 if (parsedObject.text) {
                   accumulatedResponseText += parsedObject.text;
@@ -480,8 +404,11 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
                     })
                   );
                 }
-              } catch (e) {
+              } catch (e: any) {
                 console.error("Single parsing trunk failure:", e);
+                if (e.message?.startsWith("API_ERROR_PROPAGATE: ")) {
+                  throw new Error(e.message.replace("API_ERROR_PROPAGATE: ", ""));
+                }
               }
             }
           }
@@ -540,6 +467,173 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
     }
   };
 
+  // Submit trigger
+  const handleSendMessage = async (text: string, files: AttachedFile[], requestedMode: ChatMode = activeMode) => {
+    if ((!text.trim() && files.length === 0) || isGenerating) return;
+
+    // Detect slash commands and automatically adjust operational mode
+    let finalMode = requestedMode;
+    let cleanText = text.trim();
+
+    if (cleanText.startsWith('/image ') || cleanText === '/image' || cleanText.startsWith('/generate ')) {
+      finalMode = 'image';
+      cleanText = cleanText.replace(/^\/(image|generate)\s*/i, '').trim();
+    } else if (cleanText.startsWith('/visualize ') || cleanText === '/visualize' || cleanText.startsWith('/chart ')) {
+      finalMode = 'data';
+      cleanText = cleanText.replace(/^\/(visualize|chart)\s*/i, '').trim();
+    } else if (cleanText.startsWith('/calculate ') || cleanText === '/calculate' || cleanText.startsWith('/math ') || cleanText.startsWith('/solve ')) {
+      finalMode = 'math';
+      cleanText = cleanText.replace(/^\/(calculate|math|solve)\s*/i, '').trim();
+    }
+
+    if (!cleanText && files.length === 0) return;
+
+    // 1. Resolve active conversation state setup
+    let currentId = activeConversationId;
+    let targetConversation = conversations.find((c) => c.id === currentId);
+
+    const promptMessageContent = text.trim() || `Uploaded files: ${files.map(f => f.name).join(', ')}`;
+
+    // Create the standard user message payload
+    const userMessage: Message = {
+      id: `msg_${Date.now()}_user`,
+      role: 'user',
+      content: promptMessageContent,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      attachedFiles: files.length > 0 ? files : undefined
+    };
+
+    // If no existing active chat room, create one lazily
+    if (!currentId || !targetConversation) {
+      currentId = `chat_${Date.now()}`;
+      targetConversation = {
+        id: currentId,
+        title: text.trim().slice(0, 24) || 'New Chat',
+        messages: [userMessage],
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString()
+      };
+      setConversations((prev) => [targetConversation!, ...prev]);
+      setActiveConversationId(currentId);
+    } else {
+      // Append user message to active chat
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === currentId) {
+            return {
+              ...c,
+              messages: [...c.messages, userMessage],
+              lastActiveAt: new Date().toISOString()
+            };
+          }
+          return c;
+        })
+      );
+    }
+
+    // 2. Setup streaming placeholder responses
+    const assistantMessageId = `msg_${Date.now() + 1}_assistant`;
+    const emptyAssistantMessage: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: finalMode === 'image' ? `Synthesizing conceptual image render for: "${cleanText}"` : '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isStreaming: true,
+      customType: finalMode === 'image' ? 'image' : 'standard'
+    };
+
+    // Update state to render standard thinking loader UI element
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === currentId) {
+          return {
+            ...c,
+            messages: [...c.messages, emptyAssistantMessage]
+          };
+        }
+        return c;
+      })
+    );
+
+    const updatedHistory = [
+      ...targetConversation.messages,
+      userMessage
+    ];
+
+    // Trigger title auto-summarizer in parallel on first user submission
+    const shouldGenerateTitle = targetConversation.messages.length === 0;
+    if (shouldGenerateTitle) {
+      triggerTitleGeneration(currentId, userMessage.content);
+    }
+
+    await generateResponse(currentId, assistantMessageId, updatedHistory, finalMode, cleanText);
+  };
+
+  // Regenerate trigger
+  const handleRegenerate = async (messageId: string) => {
+    if (isGenerating || !activeConversationId) return;
+
+    const targetConversation = conversations.find((c) => c.id === activeConversationId);
+    if (!targetConversation) return;
+
+    const messageIndex = targetConversation.messages.findIndex((m) => m.id === messageId);
+    if (messageIndex === -1) return;
+
+    const assistantMsg = targetConversation.messages[messageIndex];
+    if (assistantMsg.role !== 'assistant') return;
+
+    const historyUpToThis = targetConversation.messages.slice(0, messageIndex);
+    const lastUserMessage = [...historyUpToThis].reverse().find((m) => m.role === 'user');
+    if (!lastUserMessage) return;
+
+    // Set streaming state on selected message and reset parameters
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConversationId) {
+          return {
+            ...c,
+            messages: c.messages.map((m) => {
+              if (m.id === messageId) {
+                return {
+                  ...m,
+                  content: '',
+                  isStreaming: true,
+                  isError: false,
+                  customType: 'standard',
+                  chartData: undefined,
+                  chartConfig: undefined,
+                  mathExpression: undefined,
+                  mathResult: undefined,
+                  mathSteps: undefined,
+                  mathPlotPoints: undefined,
+                  imageResultUrl: undefined
+                };
+              }
+              return m;
+            })
+          };
+        }
+        return c;
+      })
+    );
+
+    let finalMode: ChatMode = activeMode;
+    let cleanText = lastUserMessage.content.trim();
+
+    if (cleanText.startsWith('/image ') || cleanText === '/image' || cleanText.startsWith('/generate ')) {
+      finalMode = 'image';
+      cleanText = cleanText.replace(/^\/(image|generate)\s*/i, '').trim();
+    } else if (cleanText.startsWith('/visualize ') || cleanText === '/visualize' || cleanText.startsWith('/chart ')) {
+      finalMode = 'data';
+      cleanText = cleanText.replace(/^\/(visualize|chart)\s*/i, '').trim();
+    } else if (cleanText.startsWith('/calculate ') || cleanText === '/calculate' || cleanText.startsWith('/math ') || cleanText.startsWith('/solve ')) {
+      finalMode = 'math';
+      cleanText = cleanText.replace(/^\/(calculate|math|solve)\s*/i, '').trim();
+    }
+
+    await generateResponse(activeConversationId, messageId, historyUpToThis, finalMode, cleanText);
+  };
+
   // Async helper to generate short conversation summarized titles
   const triggerTitleGeneration = async (chatId: string, text: string) => {
     try {
@@ -585,6 +679,7 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isOpen={sidebarOpen}
@@ -603,6 +698,7 @@ Provide at least 5 to 10 coordinates in 'plotPoints' to draw a smooth, continuou
           onToggleSidebar={handleToggleSidebar}
           sidebarOpen={sidebarOpen}
           onEditMessage={handleEditMessage}
+          onRegenerate={handleRegenerate}
         />
 
         {/* Elegant Bottom Input Composer Bar (Always anchored) */}

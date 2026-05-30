@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion } from 'motion/react';
-import { Copy, Check, Sparkles, User, AlertCircle, FileText, Volume2, VolumeX, ThumbsUp, ThumbsDown, Pencil } from 'lucide-react';
+import { Copy, Check, Sparkles, User, AlertCircle, FileText, Volume2, VolumeX, ThumbsUp, ThumbsDown, Pencil, RefreshCw } from 'lucide-react';
 import { Message, Theme } from '../types';
 import CodeBlock from './CodeBlock';
 import DataVisualizer from './DataVisualizer';
@@ -13,9 +13,10 @@ interface MessageItemProps {
   message: Message;
   theme: Theme;
   onEditMessage?: (id: string, newContent: string) => void;
+  onRegenerate?: (messageId: string) => void;
 }
 
-export default function MessageItem({ message, theme, onEditMessage }: MessageItemProps) {
+export default function MessageItem({ message, theme, onEditMessage, onRegenerate }: MessageItemProps) {
   const [copied, setCopied] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -197,7 +198,7 @@ export default function MessageItem({ message, theme, onEditMessage }: MessageIt
               </div>
             ) : (
               <div className="flex flex-col" id={`user-prompt-wrap-${message.id}`}>
-                <div className="select-text whitespace-pre-wrap text-left py-0.5 text-[15px] sm:text-[16px] leading-[1.625] font-medium font-sans text-neutral-900" id={`text-${message.id}`}>
+                <div className={`select-text whitespace-pre-wrap text-left py-0.5 text-[15px] sm:text-[16px] leading-[1.625] font-medium font-sans ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'}`} id={`text-${message.id}`}>
                   {message.content}
                 </div>
                 
@@ -368,6 +369,22 @@ export default function MessageItem({ message, theme, onEditMessage }: MessageIt
                 </>
               )}
             </button>
+
+            {onRegenerate && (
+              <button
+                onClick={() => onRegenerate(message.id)}
+                id={`regenerate-bubble-btn-${message.id}`}
+                className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer font-sans text-xs focus:outline-none ${
+                  theme === 'dark'
+                    ? 'border-transparent hover:border-[#2A2A2A] bg-transparent hover:bg-[#1A1A1A] text-neutral-400 hover:text-neutral-200'
+                    : 'border-neutral-200 hover:border-neutral-300 bg-neutral-55 hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+                }`}
+                title="Regenerate this response"
+              >
+                <RefreshCw className="w-3.5 h-3.5" id={`icon-regenerate-${message.id}`} />
+                <span>Regenerate</span>
+              </button>
+            )}
 
             {message.isError && (
               <div className="flex items-center gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/60 rounded-lg px-2 py-1" id={`error-indicator-${message.id}`}>

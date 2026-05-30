@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   MessageSquare, Search, Trash2, Menu, X, 
   PanelLeftClose, PanelLeft, Sun, Moon, Sparkles, 
-  LayoutGrid, SquarePen, Settings, LogOut, Check
+  LayoutGrid, SquarePen, Settings, LogOut, Check, Pencil
 } from 'lucide-react';
 import { Conversation, Theme } from '../types';
 
@@ -12,6 +12,7 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
+  onRenameConversation: (id: string, newTitle: string) => void;
   theme: Theme;
   onToggleTheme: () => void;
   isOpen: boolean;
@@ -24,6 +25,7 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
+  onRenameConversation,
   theme,
   onToggleTheme,
   isOpen,
@@ -31,6 +33,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   // Search filter
   const filteredConversations = conversations.filter((c) =>
@@ -200,6 +204,62 @@ export default function Sidebar({
                   <div className="space-y-0.5">
                     {group.items.map((c) => {
                       const isActive = c.id === activeConversationId;
+                      const isEditing = editingChatId === c.id;
+
+                      if (isEditing) {
+                        return (
+                          <div
+                            key={c.id}
+                            id={`chat-item-wrapper-${c.id}`}
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1 border transition-all ${
+                              theme === 'dark'
+                                ? 'bg-[#212121] border-neutral-700 text-white'
+                                : 'bg-white border-neutral-300 text-neutral-900'
+                            }`}
+                          >
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  onRenameConversation(c.id, editTitle);
+                                  setEditingChatId(null);
+                                } else if (e.key === 'Escape') {
+                                  setEditingChatId(null);
+                                }
+                              }}
+                              autoFocus
+                              className="flex-1 bg-transparent text-[13px] outline-none border-none py-0.5 font-sans"
+                              id={`edit-chat-input-${c.id}`}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRenameConversation(c.id, editTitle);
+                                setEditingChatId(null);
+                              }}
+                              className="p-1 rounded text-emerald-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                              title="Save title"
+                              id={`save-rename-btn-${c.id}`}
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingChatId(null);
+                              }}
+                              className="p-1 rounded text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                              title="Cancel"
+                              id={`cancel-rename-btn-${c.id}`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={c.id}
@@ -225,19 +285,36 @@ export default function Sidebar({
                             </span>
                           </button>
                           
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteConversation(c.id);
-                            }}
-                            className={`p-1 rounded-md transition-all focus:outline-none cursor-pointer md:opacity-0 group-hover:opacity-100 ${
-                              theme === 'dark' ? 'hover:bg-[#2f2f2f] text-neutral-500 hover:text-red-400' : 'hover:bg-neutral-200 text-neutral-400 hover:text-red-500'
-                            }`}
-                            title="Delete Conversation"
-                            id={`delete-chat-btn-${c.id}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingChatId(c.id);
+                                setEditTitle(c.title);
+                              }}
+                              className={`p-1 rounded-md transition-all focus:outline-none cursor-pointer md:opacity-0 group-hover:opacity-100 ${
+                                theme === 'dark' ? 'hover:bg-[#2f2f2f] text-neutral-400 hover:text-white' : 'hover:bg-neutral-200 text-neutral-500 hover:text-black'
+                              }`}
+                              title="Rename Conversation"
+                              id={`rename-chat-btn-${c.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteConversation(c.id);
+                              }}
+                              className={`p-1 rounded-md transition-all focus:outline-none cursor-pointer md:opacity-0 group-hover:opacity-100 ${
+                                theme === 'dark' ? 'hover:bg-[#2f2f2f] text-neutral-500 hover:text-red-400' : 'hover:bg-neutral-200 text-neutral-400 hover:text-red-500'
+                              }`}
+                              title="Delete Conversation"
+                              id={`delete-chat-btn-${c.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}

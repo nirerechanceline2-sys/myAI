@@ -10,12 +10,16 @@ const PORT = 3000;
 
 // Lazy initialization helper for Gemini SDK securely
 let aiClient: GoogleGenAI | null = null;
+let lastApiKey: string | undefined = undefined;
+
 function getGeminiClient(): GoogleGenAI {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is missing. Please navigate to the Settings > Secrets tab in Google AI Studio to configure your Gemini API Key.");
-    }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please navigate to the Settings > Secrets tab in Google AI Studio to configure your Gemini API Key.");
+  }
+  
+  if (!aiClient || lastApiKey !== apiKey) {
+    lastApiKey = apiKey;
     aiClient = new GoogleGenAI({
       apiKey,
       httpOptions: {
@@ -26,6 +30,21 @@ function getGeminiClient(): GoogleGenAI {
     });
   }
   return aiClient;
+}
+
+function cleanErrorMessage(error: any): string {
+  if (!error) return "An internal error occurred during generation.";
+  const msg = typeof error === "string" ? error : (error.message || "");
+  
+  if (msg.includes("GEMINI_API_KEY") || msg.includes("api_key") || msg.includes("API key")) {
+    return "GEMINI_API_KEY environment variable is missing. Please declare your own key in the Settings > Secrets menu in AI Studio to continue messaging.";
+  }
+  
+  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota exceeded") || msg.includes("quota") || msg.includes("429") || msg.includes("Too Many Requests")) {
+    return "The shared sandbox API quota has been temporarily exceeded (max 20 requests per day on the Gemini free tier limit). \n\nTo continue chatting immediately without any restrictions, please add your own personal **GEMINI_API_KEY** under the **Settings > Secrets** panel in the Google AI Studio top-right controls! This is fully free and takes less than 30 seconds.";
+  }
+  
+  return msg || "An internal error occurred during generation.";
 }
 
 async function startServer() {
@@ -90,8 +109,7 @@ async function startServer() {
       res.end();
     } catch (error: any) {
       console.error("Server-Side Chat error:", error);
-      // Pass the helpful initialization error or standard error back through SSE stream or normal JSON
-      const errorMessage = error.message || "An internal error occurred during generation.";
+      const errorMessage = cleanErrorMessage(error);
       
       // If headers haven't been sent yet, send a JSON error, otherwise push error chunk
       if (!res.headersSent) {
@@ -186,7 +204,7 @@ async function startServer() {
           // Don't crash; let client know so it can render a magnificent fallback!
           res.json({
             success: false,
-            error: innerErr.message || "Failed to generate image.",
+            error: cleanErrorMessage(innerErr),
             fallbackKeyword: prompt.slice(0, 30)
           });
           return;
@@ -208,7 +226,7 @@ async function startServer() {
       }
     } catch (error: any) {
       console.error("General Generate Image failure:", error);
-      res.status(500).json({ error: error.message || "Image generation service fatal error." });
+      res.status(500).json({ error: cleanErrorMessage(error) });
     }
   });
 
